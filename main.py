@@ -4,15 +4,11 @@ from aiogram.filters import Command
 from aiogram.fsm.context import FSMContext
 from aiogram.fsm.state import StatesGroup, State
 from aiogram.fsm.storage.memory import MemoryStorage
-from aiogram.types import InlineKeyboardButton, InlineKeyboardMarkup, URLInputFile
+from aiogram.types import InlineKeyboardButton, InlineKeyboardMarkup
 
 TOKEN = "8291703652:AAFJRqBXfTieoJIUcKFBHBi9My8GNUnpEF8"
 
-# ================= КАРТИНКИ =================
-# Загрузи каждую на catbox.moe и вставь ссылку сюда
-
 IMAGES = {
-    # Стол — пустой и все комбинации предметов
     "desk_empty":            "https://files.catbox.moe/gxeb6p.jpg",
     "desk_toy":              "https://files.catbox.moe/hc05wj.jpg",
     "desk_plant":            "https://files.catbox.moe/p2jm1g.jpg",
@@ -21,7 +17,6 @@ IMAGES = {
     "desk_toy_stationery":   "https://files.catbox.moe/h4h629.jpg",
     "desk_plant_stationery": "https://files.catbox.moe/d12hnv.jpg",
     "desk_all_items":        "https://files.catbox.moe/nw9kag.jpg",
-    # Остальные экраны
     "computer_password":     "https://files.catbox.moe/qzbiiu.jpg",
     "analytics_dashboard":   "https://files.catbox.moe/7st7is.jpg",
     "desk_mess":             "https://files.catbox.moe/1tnaze.jpg",
@@ -33,8 +28,6 @@ IMAGES = {
 bot = Bot(token=TOKEN)
 dp = Dispatcher(storage=MemoryStorage())
 
-
-# ================= СОСТОЯНИЯ =================
 
 class Game(StatesGroup):
     desk = State()
@@ -49,17 +42,15 @@ class Game(StatesGroup):
     logic = State()
 
 
-# ================= ВСПОМОГАТЕЛЬНЫЕ ФУНКЦИИ =================
-
 def get_desk_image(items: list) -> str:
     s = set(items)
-    if s == {"toy"}:                          return IMAGES["desk_toy"]
-    if s == {"plant"}:                        return IMAGES["desk_plant"]
-    if s == {"stationery"}:                   return IMAGES["desk_stationery"]
-    if s == {"toy", "plant"}:                 return IMAGES["desk_toy_plant"]
-    if s == {"toy", "stationery"}:            return IMAGES["desk_toy_stationery"]
-    if s == {"plant", "stationery"}:          return IMAGES["desk_plant_stationery"]
-    if s == {"toy", "plant", "stationery"}:   return IMAGES["desk_all_items"]
+    if s == {"toy"}:                        return IMAGES["desk_toy"]
+    if s == {"plant"}:                      return IMAGES["desk_plant"]
+    if s == {"stationery"}:                 return IMAGES["desk_stationery"]
+    if s == {"toy", "plant"}:               return IMAGES["desk_toy_plant"]
+    if s == {"toy", "stationery"}:          return IMAGES["desk_toy_stationery"]
+    if s == {"plant", "stationery"}:        return IMAGES["desk_plant_stationery"]
+    if s == {"toy", "plant", "stationery"}: return IMAGES["desk_all_items"]
     return IMAGES["desk_empty"]
 
 def desk_keyboard(items: list) -> InlineKeyboardMarkup:
@@ -74,13 +65,11 @@ def desk_keyboard(items: list) -> InlineKeyboardMarkup:
     return InlineKeyboardMarkup(inline_keyboard=buttons)
 
 
-# ================= СТАРТ =================
-
 @dp.message(Command("start"))
 async def start(message: types.Message, state: FSMContext):
     await state.clear()
     await message.answer_photo(
-        photo=URLInputFile(IMAGES["desk_empty"]),
+        photo=IMAGES["desk_empty"],
         caption="👋 Добро пожаловать в ОТП Банк!\n"
                 "Сегодня твой первый день стажировки.\n"
                 "Давай обустроим рабочее место 😉",
@@ -90,14 +79,11 @@ async def start(message: types.Message, state: FSMContext):
     )
 
 
-# ================= ВСЕ CALLBACKS =================
-
 @dp.callback_query()
 async def callbacks(call: types.CallbackQuery, state: FSMContext):
     data = call.data
     current_state = await state.get_state()
 
-    # ----- рестарт -----
     if data == "restart":
         await state.clear()
         await call.message.delete()
@@ -105,20 +91,18 @@ async def callbacks(call: types.CallbackQuery, state: FSMContext):
         await call.answer()
         return
 
-    # ----- начало игры -----
     if data == "start_game":
         await state.set_state(Game.desk)
         await state.update_data(items=[])
         await call.message.delete()
         await call.message.answer_photo(
-            photo=URLInputFile(IMAGES["desk_empty"]),
+            photo=IMAGES["desk_empty"],
             caption="Выбери, что добавить на стол:",
             reply_markup=desk_keyboard([])
         )
         await call.answer()
         return
 
-    # ----- стол -----
     if current_state == Game.desk.state:
         user_data = await state.get_data()
         items = user_data.get("items", [])
@@ -127,12 +111,11 @@ async def callbacks(call: types.CallbackQuery, state: FSMContext):
             items.append(data)
             await state.update_data(items=items)
 
-        # Если выбрали "к работе" или уже все три предмета
         if data == "work" or set(items) == {"toy", "plant", "stationery"}:
             await state.set_state(Game.password)
             await call.message.delete()
             await call.message.answer_photo(
-                photo=URLInputFile(IMAGES["desk_all_items"]),
+                photo=IMAGES["desk_all_items"],
                 caption="✨ Красота! Теперь приступаем к работе.",
                 reply_markup=InlineKeyboardMarkup(
                     inline_keyboard=[[InlineKeyboardButton(text="💻 К компьютеру", callback_data="to_computer")]]
@@ -141,39 +124,36 @@ async def callbacks(call: types.CallbackQuery, state: FSMContext):
             await call.answer()
             return
 
-        # Обновляем картинку стола с новым предметом
         await call.message.delete()
         await call.message.answer_photo(
-            photo=URLInputFile(get_desk_image(items)),
+            photo=get_desk_image(items),
             caption="✨ Отличный выбор! Добавим ещё что-нибудь или сразу к работе?",
             reply_markup=desk_keyboard(items)
         )
         await call.answer()
         return
 
-    # ----- к компьютеру -----
     if data == "to_computer":
         await call.message.delete()
         await call.message.answer_photo(
-            photo=URLInputFile(IMAGES["computer_password"]),
+            photo=IMAGES["computer_password"],
             caption="💻 Рабочий компьютер ждёт тебя.\n"
                     "Введи пароль, чтобы приступить к задачам."
         )
         await call.answer()
         return
 
-    # ----- аналитика -----
     if current_state == Game.analytics.state:
         if data == "C":
             await state.set_state(Game.creative)
             await call.message.delete()
             await call.message.answer(
-                caption="🎨 Креативная команда запускает рекламную кампанию.\n"
-                        "Помоги выбрать корректный и законный слоган.\n\n"
-                        "A) «Карта без условий — деньги просто так!»\n"
-                        "B) «ОТП Карта — кэшбэк до 35% с прозрачными условиями»\n"
-                        "C) «Гарантированный доход каждому»\n"
-                        "D) «ОТП Банк — номер 1 в стране»",
+                "🎨 Креативная команда запускает рекламную кампанию.\n"
+                "Помоги выбрать корректный и законный слоган.\n\n"
+                "A) «Карта без условий — деньги просто так!»\n"
+                "B) «ОТП Карта — кэшбэк до 35% с прозрачными условиями»\n"
+                "C) «Гарантированный доход каждому»\n"
+                "D) «ОТП Банк — номер 1 в стране»",
                 reply_markup=InlineKeyboardMarkup(
                     inline_keyboard=[[InlineKeyboardButton(text=l, callback_data=l)] for l in ["A", "B", "C", "D"]]
                 )
@@ -182,13 +162,12 @@ async def callbacks(call: types.CallbackQuery, state: FSMContext):
             await call.answer("Попробуй ещё раз 😉")
         return
 
-    # ----- креатив -----
     if current_state == Game.creative.state:
         if data == "B":
             await state.set_state(Game.mess)
             await call.message.delete()
             await call.message.answer_photo(
-                photo=URLInputFile(IMAGES["desk_mess"]),
+                photo=IMAGES["desk_mess"],
                 caption="😅 Ого, что тут произошло?\n"
                         "Наведи порядок на столе и посчитай, каких предметов больше.",
                 reply_markup=InlineKeyboardMarkup(
@@ -200,7 +179,6 @@ async def callbacks(call: types.CallbackQuery, state: FSMContext):
             await call.answer("Этот вариант может нарушать закон о рекламе или вводить в заблуждение.")
         return
 
-    # ----- беспорядок -----
     if current_state == Game.mess.state:
         if data == "Скрепки":
             await state.set_state(Game.finance)
@@ -218,13 +196,12 @@ async def callbacks(call: types.CallbackQuery, state: FSMContext):
             await call.answer("Попробуй ещё раз 😉")
         return
 
-    # ----- финансы -----
     if current_state == Game.finance.state:
         if data == "16000":
             await state.set_state(Game.lunch)
             await call.message.delete()
             await call.message.answer_photo(
-                photo=URLInputFile(IMAGES["vending_machine"]),
+                photo=IMAGES["vending_machine"],
                 caption="⏰ Половина дня позади — пора на перерыв.\n"
                         "Что выберешь на обед?",
                 reply_markup=InlineKeyboardMarkup(
@@ -236,7 +213,6 @@ async def callbacks(call: types.CallbackQuery, state: FSMContext):
             await call.answer("Неверно 😉")
         return
 
-    # ----- обед -----
     if current_state == Game.lunch.state:
         await state.set_state(Game.lunch_task)
         await call.message.delete()
@@ -252,13 +228,12 @@ async def callbacks(call: types.CallbackQuery, state: FSMContext):
         await call.answer()
         return
 
-    # ----- вероятность -----
     if current_state == Game.lunch_task.state:
         if data == "60%":
             await state.set_state(Game.blurred)
             await call.message.delete()
             await call.message.answer_photo(
-                photo=URLInputFile(IMAGES["blurred_word"]),
+                photo=IMAGES["blurred_word"],
                 caption="📊 Помогай!\n\n"
                         "В презентации по запуску нового продукта одно ключевое слово оказалось размыто.\n"
                         "Напиши его:"
@@ -267,12 +242,11 @@ async def callbacks(call: types.CallbackQuery, state: FSMContext):
             await call.answer("Попробуй ещё раз 😉")
         return
 
-    # ----- логика -----
     if current_state == Game.logic.state:
         if data == "Мария":
             await call.message.delete()
             await call.message.answer_photo(
-                photo=URLInputFile(IMAGES["celebration"]),
+                photo=IMAGES["celebration"],
                 caption="🎉 Классная работа!\n\n"
                         "Ты прошёл свой первый день в ОТП Банке — "
                         "попробовал себя в аналитике, финансах, маркетинге и логике."
@@ -301,15 +275,13 @@ async def callbacks(call: types.CallbackQuery, state: FSMContext):
         return
 
 
-# ================= ПАРОЛЬ =================
-
 @dp.message(Game.password)
 async def check_password(message: types.Message, state: FSMContext):
     if message.text.strip().lower() == "отп":
         await state.set_state(Game.analytics)
         await message.answer("🔓 Доступ открыт. Начинаем!")
         await message.answer_photo(
-            photo=URLInputFile(IMAGES["analytics_dashboard"]),
+            photo=IMAGES["analytics_dashboard"],
             caption="📊 Отдел аналитики на связи!\n\n"
                     "Мы сравниваем три кредита.\n"
                     "Какой из них принесёт банку наибольший процентный доход за год?",
@@ -318,46 +290,4 @@ async def check_password(message: types.Message, state: FSMContext):
                     [InlineKeyboardButton(text="A", callback_data="A")],
                     [InlineKeyboardButton(text="B", callback_data="B")],
                     [InlineKeyboardButton(text="C", callback_data="C")],
-                    [InlineKeyboardButton(text="Доход одинаковый", callback_data="equal")]
-                ]
-            )
-        )
-    else:
-        await message.answer(
-            "❌ Пароль неверный.\n"
-            "Подсказка: посмотри на стикер рядом с монитором — это три заглавные буквы."
-        )
-
-
-# ================= РАЗМЫТОЕ СЛОВО =================
-
-@dp.message(Game.blurred)
-async def check_blurred(message: types.Message, state: FSMContext):
-    if message.text.strip().lower() == "паттерны":
-        await state.set_state(Game.logic)
-        await message.answer(
-            "🗂 Ещё одна задача — теперь на логику.\n\n"
-            "Есть три клиента: Иван, Мария и Алексей.\n"
-            "Один оформил вклад, второй — кредит, третий — карту.\n\n"
-            "Известно, что:\n"
-            "— Иван не оформлял вклад\n"
-            "— Клиент с картой — не Мария\n"
-            "— Алексей оформил кредит\n\n"
-            "Вопрос: кто оформил вклад?",
-            reply_markup=InlineKeyboardMarkup(
-                inline_keyboard=[[InlineKeyboardButton(text=t, callback_data=t)]
-                                 for t in ["Иван", "Мария", "Алексей", "Нельзя определить"]]
-            )
-        )
-    else:
-        await message.answer(
-            "❌ Неверно.\n\n"
-            "Подсказка: это термин из маркетинга и психологии пользователей, "
-            "описывающий повторяющиеся модели поведения аудитории."
-        )
-
-
-# ================= ЗАПУСК =================
-
-if __name__ == "__main__":
-    asyncio.run(dp.start_polling(bot))
+                    [InlineKeyboardButton(text="Доход
