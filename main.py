@@ -290,4 +290,42 @@ async def check_password(message: types.Message, state: FSMContext):
                     [InlineKeyboardButton(text="A", callback_data="A")],
                     [InlineKeyboardButton(text="B", callback_data="B")],
                     [InlineKeyboardButton(text="C", callback_data="C")],
-                    [InlineKeyboardButton(text="Доход
+                    [InlineKeyboardButton(text="Доход одинаковый", callback_data="equal")]
+                ]
+            )
+        )
+    else:
+        await message.answer(
+            "❌ Пароль неверный.\n"
+            "Подсказка: посмотри на стикер рядом с монитором — это три заглавные буквы."
+        )
+
+
+@dp.message(Game.blurred)
+async def check_blurred(message: types.Message, state: FSMContext):
+    if message.text.strip().lower() == "паттерны":
+        await state.set_state(Game.logic)
+        await message.answer(
+            "🗂 Ещё одна задача — теперь на логику.\n\n"
+            "Есть три клиента: Иван, Мария и Алексей.\n"
+            "Один оформил вклад, второй — кредит, третий — карту.\n\n"
+            "Известно, что:\n"
+            "— Иван не оформлял вклад\n"
+            "— Клиент с картой — не Мария\n"
+            "— Алексей оформил кредит\n\n"
+            "Вопрос: кто оформил вклад?",
+            reply_markup=InlineKeyboardMarkup(
+                inline_keyboard=[[InlineKeyboardButton(text=t, callback_data=t)]
+                                 for t in ["Иван", "Мария", "Алексей", "Нельзя определить"]]
+            )
+        )
+    else:
+        await message.answer(
+            "❌ Неверно.\n\n"
+            "Подсказка: это термин из маркетинга и психологии пользователей, "
+            "описывающий повторяющиеся модели поведения аудитории."
+        )
+
+
+if __name__ == "__main__":
+    asyncio.run(dp.start_polling(bot))
